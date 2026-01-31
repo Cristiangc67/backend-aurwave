@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int        @id @default(autoincrement())
+  username      String     @unique
+  email         String     @unique
+  password_hash String
+  created_at    DateTime   @default(now())
+  playlists     Playlist[]
+}
+
+model Artist {
+  id        Int      @id @default(autoincrement())
+  name      String
+  genre     String?
+  bio       String?
+  image_url String?
+  albums    Album[]
+  songs     Song[]
+}
+
+model Album {
+  id           Int      @id @default(autoincrement())
+  title        String
+  artist_id    Int
+  artist       Artist   @relation(fields: [artist_id], references: [id], onDelete: Cascade)
+  release_date DateTime?
+  cover_url    String?
+  songs        Song[]
+}
+
+model Playlist {
+  id          Int             @id @default(autoincrement())
+  user_id     Int
+  user        User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  is_public   Boolean         @default(true)
+  created_at  DateTime        @default(now())
+  songs       PlaylistSong[]
+}
+
+model Song {
+  id         Int             @id @default(autoincrement())
+  title      String
+  artist_id  Int
+  artist     Artist          @relation(fields: [artist_id], references: [id], onDelete: Cascade)
+  album_id   Int?
+  album      Album?          @relation(fields: [album_id], references: [id], onDelete: SetNull)
+  duration   Int?
+  file_url   String?
+  created_at DateTime        @default(now())
+  playlists  PlaylistSong[]
+}
+
+model PlaylistSong {
+  id          Int      @id @default(autoincrement())
+  playlist_id Int
+  song_id     Int
+  position    Int
+  added_at    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlist_id], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [song_id], references: [id], onDelete: Cascade)
+
+  @@unique([playlist_id, position])
+}
