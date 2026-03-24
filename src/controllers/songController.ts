@@ -1,5 +1,5 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -22,7 +22,7 @@ export const getSongById = async (req: Request, res: Response) => {
       include: { artist: true, album: true },
     });
     if (!song) {
-      return res.status(404).json({ message: 'Song not found' });
+      return res.status(404).json({ message: "Song not found" });
     }
     res.json(song);
   } catch (error: any) {
@@ -52,16 +52,16 @@ export const searchSongs = async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
     if (!q) {
-      return res.status(400).json({ message: 'Query parameter q is required' });
+      return res.status(400).json({ message: "Query parameter q is required" });
     }
     const songs = await prisma.song.findMany({
       where: {
         OR: [
-          { title: { contains: String(q), mode: 'insensitive' } },
-          { artist: { name: { contains: String(q), mode: 'insensitive' } } },
+          { title: { contains: String(q), mode: "insensitive" } },
+          { artist: { name: { contains: String(q), mode: "insensitive" } } },
         ],
       },
-      include: { artist: true },
+      include: { artist: true, album: true },
     });
     res.json(songs);
   } catch (error: any) {

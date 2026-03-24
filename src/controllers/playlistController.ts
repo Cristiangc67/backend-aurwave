@@ -25,7 +25,21 @@ export const getUserPlaylists = async (req: Request, res: Response) => {
     const { userId } = req.params;
     const playlists = await prisma.playlist.findMany({
       where: { user_id: Number(userId) },
-      include: { songs: { include: { artist: { select: { id: true, name: true } }, album: { select: { id: true, title: true, cover_url: true } } } }, user: { select: { id: true, username: true } } },
+      include: {
+  songs: {
+    orderBy: { position: 'asc' },
+    include: {
+      song: {
+        include: {
+          artist: true,
+          album: true,
+        },
+      },
+    },
+  },
+  user: { select: { id: true, username: true } },
+}
+
     });
     res.json(playlists);
   } catch (error: any) {
@@ -34,56 +48,77 @@ export const getUserPlaylists = async (req: Request, res: Response) => {
 };
 
 export const getPlaylistById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const playlist = await prisma.playlist.findUnique({
-      where: { id: Number(id) },
-      include: { songs: { include: { artist: true, album: true } }, user: { select: { id: true, username: true } } },
-    });
-    if (!playlist) {
-      return res.status(404).json({ message: 'Playlist not found' });
-    }
-    res.json(playlist);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  const { id } = req.params;
+
+  const playlist = await prisma.playlist.findUnique({
+    where: { id: Number(id) },
+    include: {
+      songs: {
+        orderBy: { position: 'asc' },
+        include: {
+          song: {
+            include: {
+              artist: true,
+              album: true,
+            },
+          },
+        },
+      },
+      user: {
+        select: { id: true, username: true },
+      },
+    },
+  });
+
+  if (!playlist) {
+    return res.status(404).json({ message: 'Playlist not found' });
   }
+
+  res.json(playlist);
 };
+
 
 export const addSongToPlaylist = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { song_id } = req.body;
 
-    const playlist = await prisma.playlist.update({
-      where: { id: Number(id) },
-      data: {
-        songs: {
-          connect: { id: Number(song_id) },
-        },
-      },
-      include: { songs: true },
+    const last = await prisma.playlistSong.findFirst({
+      where: { playlist_id: Number(id) },
+      orderBy: { position: 'desc' },
     });
-    res.json(playlist);
+
+    const nextPosition = last ? last.position + 1 : 1;
+
+    await prisma.playlistSong.create({
+      data: {
+        playlist_id: Number(id),
+        song_id: Number(song_id),
+        position: nextPosition,
+      },
+    });
+
+    res.status(201).json({ message: 'Song added to playlist' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 export const removeSongFromPlaylist = async (req: Request, res: Response) => {
   try {
     const { id, songId } = req.params;
 
-    const playlist = await prisma.playlist.update({
-      where: { id: Number(id) },
-      data: {
-        songs: {
-          disconnect: { id: Number(songId) },
-        },
+    await prisma.playlistSong.deleteMany({
+      where: {
+        playlist_id: Number(id),
+        song_id: Number(songId),
       },
-      include: { songs: true },
     });
-    res.json(playlist);
+
+    res.json({ message: 'Song removed from playlist' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
+
