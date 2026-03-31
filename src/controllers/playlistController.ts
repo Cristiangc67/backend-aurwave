@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
+
 const prisma = new PrismaClient();
 
 export const createPlaylist = async (req: Request, res: Response) => {
@@ -22,26 +23,52 @@ export const createPlaylist = async (req: Request, res: Response) => {
 
 export const getUserPlaylists = async (req: Request, res: Response) => {
   try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const { userId } = req.params;
     const playlists = await prisma.playlist.findMany({
-      where: { user_id: Number(userId) },
+      where: {
+        OR: [
+          { user_id: Number(userId) },
+          { is_public: true }
+        ]
+      }, skip: skip,
+      take: limit,
       include: {
-  songs: {
-    orderBy: { position: 'asc' },
-    include: {
-      song: {
-        include: {
-          artist: true,
-          album: true,
+        songs: {
+          orderBy: { position: 'asc' },
+          include: {
+            song: {
+              include: {
+                artist: true,
+                album: true,
+              },
+            },
+          },
         },
-      },
-    },
-  },
-  user: { select: { id: true, username: true } },
-}
+        user: { select: { id: true, username: true } },
+      }
 
     });
-    res.json(playlists);
+    const totalPlaylists = await prisma.playlist.count({
+      where: {
+        OR: [
+          { user_id: Number(userId) },
+          { is_public: true }
+        ]
+      }
+    });
+    res.json({
+      playlists,
+      pagination: {
+        page,
+        limit,
+        total: totalPlaylists,
+        totalPages: Math.ceil(totalPlaylists / limit),
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
